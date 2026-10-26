@@ -1,0 +1,96 @@
+import { MedicalFacility } from '../types/hospital';
+
+export const INITIAL_FACILITIES: MedicalFacility[] = [
+  {
+    id: 'HOSP-TRAUMA-1',
+    name: 'St. Jude Metropolitan Level 1 Trauma Center',
+    nodeId: 'N-06',
+    type: 'trauma_center',
+    totalBeds: 45,
+    availableBeds: 12,
+    emergencyStatus: 'open',
+    capabilities: [
+      'Level 1 Comprehensive Trauma',
+      'Neurosurgery 24/7',
+      'Emergency Resuscitation & Surgery',
+      'Cardiothoracic Care',
+      'Surgical ICU',
+      'Advanced Diagnostic CT/MRI',
+    ],
+    contactPhone: '+1 (555) 911-8786',
+    address: '820 Medical Center Boulevard, Eastside District',
+  },
+  {
+    id: 'HOSP-TRAUMA-2',
+    name: 'Valley Memorial Trauma & Emergency Hospital',
+    nodeId: 'N-18',
+    type: 'trauma_center',
+    totalBeds: 35,
+    availableBeds: 0, // Zero nominal beds available - used for capacity override testing!
+    emergencyStatus: 'divert',
+    capabilities: [
+      'Level 2 Trauma Care',
+      'Emergency Surgery',
+      'Burn & Trauma Resuscitation',
+      'Intensive Care Unit (ICU)',
+    ],
+    contactPhone: '+1 (555) 911-3420',
+    address: '780 Valley Trauma Way, South Corridor',
+  },
+  {
+    id: 'HOSP-GEN-1',
+    name: 'City Central General Hospital',
+    nodeId: 'N-11',
+    type: 'general_hospital',
+    totalBeds: 50,
+    availableBeds: 8,
+    emergencyStatus: 'open',
+    capabilities: [
+      'Emergency Department',
+      'General Surgery',
+      'Internal Medicine',
+      'Orthopedic Fracture Care',
+      'Radiology & Ultrasound',
+      'Step-Down Care',
+    ],
+    contactPhone: '+1 (555) 911-5500',
+    address: '560 Central Avenue, Midtown Civic Core',
+  },
+  {
+    id: 'CLINIC-EAST',
+    name: 'Eastside Urgent Care & Community Clinic',
+    nodeId: 'N-04',
+    type: 'clinic',
+    totalBeds: 10,
+    availableBeds: 4,
+    emergencyStatus: 'open',
+    capabilities: [
+      'Urgent Walk-in Care',
+      'Laceration Suturing & Wound Dressing',
+      'Minor Fracture Splinting',
+      'Basic Point-of-Care Diagnostics',
+    ],
+    contactPhone: '+1 (555) 911-1200',
+    address: '860 East Coast Parkway, Harbor Heights',
+  },
+  {
+    id: 'CLINIC-WEST',
+    name: 'Westwood Family Health Clinic',
+    nodeId: 'N-14',
+    type: 'clinic',
+    totalBeds: 8,
+    availableBeds: 2,
+    emergencyStatus: 'open',
+    capabilities: [
+      'Outpatient First Aid',
+      'Minor Injury Treatment',
+      'Observation Beds',
+    ],
+    contactPhone: '+1 (555) 911-9400',
+    address: '100 Westwood Avenue, West District',
+  },
+];
+
+export function getInitialFacilities(): MedicalFacility[] {
+  return JSON.parse(JSON.stringify(INITIAL_FACILITIES));
+}
