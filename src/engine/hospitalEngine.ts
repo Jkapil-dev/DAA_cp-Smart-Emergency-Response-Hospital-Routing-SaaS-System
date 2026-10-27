@@ -1,8 +1,14 @@
-import { MedicalFacility, HospitalCandidateEvaluation, HospitalRecommendationResult } from '../types/hospital';
+import {
+  MedicalFacility,
+  HospitalCandidateEvaluation,
+  HospitalRecommendationResult,
+  HospitalIncomingRequest,
+} from '../types/hospital';
 import { CityNetwork, RoutingObjective } from '../types/graph';
 import { Incident } from '../types/incident';
 import { dijkstra } from '../algorithms/dijkstra';
 import { aStar } from '../algorithms/astar';
+import { calculateProvisionalResourceRequest } from './severityEngine';
 
 export interface HospitalEngineOptions {
   algorithm?: 'dijkstra' | 'astar';
@@ -22,10 +28,18 @@ export function recommendHospital(
 ): HospitalRecommendationResult {
   const algorithm = options.algorithm || 'dijkstra';
   const objective = options.objective || 'travelTime';
-  const isProvisional = options.isProvisional ?? (incident.stage !== 'destination_confirmed' && incident.stage !== 'en_route_hospital');
+  const isProvisional =
+    options.isProvisional ??
+    (incident.stage !== 'destination_confirmed' && incident.stage !== 'en_route_hospital');
   const router = algorithm === 'astar' ? aStar : dijkstra;
 
   const severity = incident.severityEvaluation.severity;
+  const provisionalResourceRequest = calculateProvisionalResourceRequest(
+    severity,
+    incident.currentObservations.injuredCount,
+    incident.currentObservations
+  );
+
   const candidates: HospitalCandidateEvaluation[] = [];
 
   for (const facility of facilities) {
@@ -46,7 +60,8 @@ export function recommendHospital(
     } else if (severity === 'moderate') {
       if (facility.type === 'clinic') {
         isEligible = false;
-        exclusionReason = 'Community clinics lack emergency department, continuous observation beds, and advanced radiology required for MODERATE injury triage.';
+        exclusionReason =
+          'Community clinics lack emergency department, continuous observation beds, and advanced radiology required for MODERATE injury triage.';
       } else {
         matchReasons.push('Emergency department capable with inpatient diagnostic services');
       }
@@ -62,18 +77,20 @@ export function recommendHospital(
     // --- HARD CONSTRAINT 2: BED CAPACITY HANDLING BY SEVERITY ---
     if (facility.availableBeds <= 0) {
       if (severity === 'critical' || severity === 'severe') {
-        // RULE 4: Trauma hospital with 0 beds is NOT excluded solely on capacity!
+        // RULE: Trauma hospital with 0 beds is NOT excluded solely on capacity!
         // It triggers an emergency capacity override for life-saving trauma care.
         if (facility.type === 'trauma_center') {
           hasCapacityOverride = true;
           requiresDispatcherOverrideConfirmation = true;
-          matchReasons.push('CAPACITY OVERRIDE: 0 standard beds available, but essential trauma resuscitation capabilities mandate destination eligibility. Emergency corridor confirmation required.');
+          matchReasons.push(
+            'CAPACITY OVERRIDE: 0 standard beds available, but essential trauma resuscitation capabilities mandate destination eligibility. Emergency corridor confirmation required.'
+          );
         } else {
           isEligible = false;
           exclusionReason = 'Zero beds available in non-trauma facility.';
         }
       } else if (severity === 'moderate') {
-        // RULE 5: Moderate cases require available beds or are de-prioritized/diverted
+        // Moderate cases require available beds or are diverted
         isEligible = false;
         exclusionReason = 'Facility at 0 bed capacity (Divert status). Ineligible for moderate admissions to avoid ER overcrowding.';
       } else {
@@ -95,8 +112,7 @@ export function recommendHospital(
         : 'Road route unreachable due to active road closures.';
     }
 
-    // Calculate suitability score (higher is better)
-    // Suitability considers type appropriateness, capacity margin, and travel time
+    // Calculate suitability score
     let suitabilityScore = 0;
     if (isEligible) {
       suitabilityScore = 1000 - (route.found ? route.totalTravelTimeMinutes * 10 : 999);
@@ -132,7 +148,6 @@ export function recommendHospital(
   const eligibleCandidates = candidates
     .filter((c) => c.isEligible && c.travelTimeMinutes < Infinity)
     .sort((a, b) => {
-      // Prioritize primary suitability score, which factors travel time and acuity match
       if (a.hasCapacityOverride !== b.hasCapacityOverride) {
         // Prefer facility with actual beds over capacity override if both are eligible
         return a.hasCapacityOverride ? 1 : -1;
@@ -150,6 +165,7 @@ export function recommendHospital(
       candidates,
       requiresIntervention: true,
       interventionReason: `All facilities are either medically inadequate for ${severity} triage or unreachable via current road network. Contact regional emergency dispatch for inter-county trauma transport.`,
+      provisionalResourceRequest,
     };
   }
 
@@ -173,5 +189,31 @@ export function recommendHospital(
     justification,
     candidates,
     requiresIntervention: false,
+    provisionalResourceRequest,
+  };
+}
+
+export function createHospitalIncomingNotice(
+  facility: MedicalFacility,
+  incident: Incident,
+  etaMinutes: number = 10
+): HospitalIncomingRequest {
+  const req = calculateProvisionalResourceRequest(
+    incident.severityEvaluation.severity,
+    incident.currentObservations.injuredCount,
+    incident.currentObservations
+  );
+
+  return {
+    id: `REQ-${facility.id}-${incident.id}`,
+    incidentId: incident.id,
+    severity: incident.severityEvaluation.severity,
+    locationNodeId: incident.locationNodeId,
+    injuredCount: incident.currentObservations.injuredCount,
+    estimatedArrivalMinutes: etaMinutes,
+    resourceRequest: req,
+    status: facility.availableBeds <= 0 && facility.type === 'trauma_center' ? 'capacity_override' : 'pending',
+    timestamp: new Date().toISOString(),
+    notes: `${incident.title} - ${req.reason}`,
   };
 }

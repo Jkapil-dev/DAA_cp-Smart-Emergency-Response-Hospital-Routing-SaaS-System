@@ -51,10 +51,10 @@ export const ScenariosTab: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <CheckSquare className="w-5 h-5 text-teal-600" />
-            <span>Automated System Test Scenarios (14 Test Cases)</span>
+            <span>Automated System Test Scenarios ({results.length} Test Cases)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Validation suite covering clinical triage constraints, capacity overrides, graph detours, and multi-objective routing
+            Validation suite covering clinical triage constraints, expanding square-grid discovery, capacity overrides, graph detours, and multi-role coordination
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export const ScenariosTab: React.FC = () => {
           className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs shadow-sm transition"
         >
           <Play className="w-3.5 h-3.5 fill-current" />
-          <span>Execute All 14 Scenarios</span>
+          <span>Execute All {results.length} Scenarios</span>
         </button>
       </div>
 
@@ -74,7 +74,7 @@ export const ScenariosTab: React.FC = () => {
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
               Tests Passed
             </span>
-            <span className="text-2xl font-black text-emerald-600">{passedCount} / 14</span>
+            <span className="text-2xl font-black text-emerald-600">{passedCount} / {results.length}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 className="w-5 h-5" />
@@ -105,7 +105,7 @@ export const ScenariosTab: React.FC = () => {
               Success Rate
             </span>
             <span className="text-2xl font-black text-blue-600">
-              {Math.round((passedCount / 14) * 100)}%
+              {results.length > 0 ? Math.round((passedCount / results.length) * 100) : 0}%
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSimulation } from '../../context/SimulationContext';
 import { GraphNode, GraphEdge, RouteResult } from '../../types/graph';
+import { buildGrid, getCellForNode } from '../../engine/gridDiscoveryEngine';
 import {
   AlertTriangle,
   Hospital,
@@ -11,6 +12,8 @@ import {
   Maximize2,
   CheckCircle2,
   XCircle,
+  Grid,
+  Radio,
 } from 'lucide-react';
 
 interface CityMapVisualizerProps {
@@ -19,6 +22,7 @@ interface CityMapVisualizerProps {
   selectedNodeId?: string;
   onSelectNode?: (nodeId: string) => void;
   height?: string;
+  initialShowGrid?: boolean;
 }
 
 export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
@@ -26,7 +30,8 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
   interactiveRoadToggling = true,
   selectedNodeId,
   onSelectNode,
-  height = 'h-[520px]',
+  height = 'h-[540px]',
+  initialShowGrid = true,
 }) => {
   const {
     network,
@@ -35,10 +40,13 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
     activeIncident,
     highlightedRoute,
     toggleRoadBlock,
+    gridConfig,
+    latestGridResult,
   } = useSimulation();
 
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<GraphEdge | null>(null);
+  const [showGridOverlay, setShowGridOverlay] = useState<boolean>(initialShowGrid);
 
   const displayRoute = customRoute || highlightedRoute;
 
@@ -58,11 +66,19 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
     }
   }
 
+  // Build grid cells
+  const gridCells = buildGrid(network, gridConfig);
+  const incidentCell = activeIncident
+    ? getCellForNode(activeIncident.locationNodeId, network, gridConfig)
+    : null;
+
   return (
-    <div className={`relative w-full ${height} bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-inner select-none flex flex-col`}>
+    <div
+      className={`relative w-full ${height} bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-inner select-none flex flex-col`}
+    >
       {/* Top Map HUD Controls */}
       <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2 pointer-events-auto bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-300">
+        <div className="flex items-center gap-2 pointer-events-auto bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-300 shadow-md">
           <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="font-semibold text-slate-100">Live City Road Network</span>
           <span className="text-slate-500">|</span>
@@ -70,31 +86,47 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
           <span className="text-slate-500">•</span>
           <span>{network.edges.length} Road Links</span>
           {interactiveRoadToggling && (
-            <span className="text-amber-400 ml-2 hidden sm:inline">(Click any road to toggle closure)</span>
+            <span className="text-amber-400 ml-2 hidden sm:inline">(Click road to toggle closure)</span>
           )}
         </div>
 
-        {/* Legend */}
-        <div className="hidden lg:flex items-center gap-3 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-300 pointer-events-auto">
-          <div className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-red-500" />
-            <span>Trauma Center</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-blue-500" />
-            <span>General Hosp</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-teal-400" />
-            <span>Clinic</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-emerald-400/40" />
-            <span>Ambulance</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-2 w-4 rounded bg-rose-500 border border-dashed border-rose-300" />
-            <span>Blocked Road</span>
+        {/* Right HUD Controls: Grid Toggle & Legend */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Toggle Grid Overlay */}
+          <button
+            onClick={() => setShowGridOverlay(!showGridOverlay)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition shadow-sm ${
+              showGridOverlay
+                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20'
+                : 'bg-slate-950/80 text-slate-300 border-slate-800 hover:bg-slate-900'
+            }`}
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span>Square Grid {showGridOverlay ? 'ON' : 'OFF'}</span>
+          </button>
+
+          {/* Legend */}
+          <div className="hidden xl:flex items-center gap-3 bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-300">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+              <span>Trauma</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+              <span>General Hosp</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-teal-400" />
+              <span>Clinic</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/40" />
+              <span>Ambulance</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-3 rounded bg-rose-500 border border-dashed border-rose-300" />
+              <span>Blocked</span>
+            </div>
           </div>
         </div>
       </div>
@@ -106,9 +138,9 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          {/* Grid pattern */}
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" strokeWidth="0.75" />
+          {/* Fine pattern */}
+          <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" strokeWidth="0.5" />
           </pattern>
 
           {/* Glow filter for active route */}
@@ -119,22 +151,83 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-
-          <filter id="incidentGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4" />
-          </filter>
         </defs>
 
-        {/* Map Background Grid */}
+        {/* Map Background */}
         <rect width="1000" height="600" fill="#090d16" />
-        <rect width="1000" height="600" fill="url(#grid)" opacity="0.6" />
+        <rect width="1000" height="600" fill="url(#gridPattern)" opacity="0.4" />
 
-        {/* Draw Water / Island feature for visual realism */}
+        {/* Water Feature */}
         <path
           d="M 0 150 Q 80 180 110 280 T 60 400 L 0 400 Z"
           fill="#0c1e33"
           opacity="0.4"
         />
+
+        {/* EXPANDING SQUARE-GRID OVERLAY (Uber-inspired partition) */}
+        {showGridOverlay && (
+          <g id="expanding-square-grid-layer" pointerEvents="none">
+            {gridCells.map((cell) => {
+              const isIncidentCell = incidentCell?.cellId === cell.id;
+              const isSearched = latestGridResult?.allSearchedCellIds.includes(cell.id);
+
+              return (
+                <g key={cell.id}>
+                  {/* Cell Box */}
+                  <rect
+                    x={cell.bounds.minX}
+                    y={cell.bounds.minY}
+                    width={gridConfig.cellWidth}
+                    height={gridConfig.cellHeight}
+                    fill={
+                      isIncidentCell
+                        ? 'rgba(239, 68, 68, 0.08)'
+                        : isSearched
+                        ? 'rgba(56, 189, 248, 0.04)'
+                        : 'transparent'
+                    }
+                    stroke={
+                      isIncidentCell
+                        ? '#ef4444'
+                        : isSearched
+                        ? '#38bdf8'
+                        : '#334155'
+                    }
+                    strokeWidth={isIncidentCell ? 2 : isSearched ? 1.5 : 0.75}
+                    strokeDasharray={isIncidentCell ? undefined : '4 4'}
+                    opacity={isIncidentCell ? 0.9 : 0.5}
+                  />
+
+                  {/* Cell Label Pill */}
+                  <g
+                    transform={`translate(${cell.bounds.minX + 8}, ${cell.bounds.minY + 14})`}
+                  >
+                    <rect
+                      x="0"
+                      y="-10"
+                      width={isIncidentCell ? 90 : 54}
+                      height="15"
+                      rx="3"
+                      fill={isIncidentCell ? '#7f1d1d' : '#0f172a'}
+                      stroke={isIncidentCell ? '#f87171' : '#334155'}
+                      strokeWidth="0.75"
+                    />
+                    <text
+                      x={isIncidentCell ? 45 : 27}
+                      y="1"
+                      textAnchor="middle"
+                      fill={isIncidentCell ? '#fecaca' : '#94a3b8'}
+                      fontSize="7.5"
+                      fontWeight="bold"
+                    >
+                      {isIncidentCell ? `[${cell.col},${cell.row}] RING 0` : `[${cell.col},${cell.row}]`}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
+          </g>
+        )}
 
         {/* EDGES / ROADS */}
         <g id="roads-layer">
@@ -147,7 +240,6 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
             const isBlocked = edge.isBlocked;
             const isHighway = edge.roadType === 'highway';
 
-            // Coordinates
             const x1 = fromNode.x;
             const y1 = fromNode.y;
             const x2 = toNode.x;
@@ -178,7 +270,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                 onMouseEnter={() => setHoveredEdge(edge)}
                 onMouseLeave={() => setHoveredEdge(null)}
               >
-                {/* Invisible wider hit-box for easy clicking */}
+                {/* Hitbox */}
                 <line
                   x1={x1}
                   y1={y1}
@@ -188,7 +280,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   strokeWidth="18"
                 />
 
-                {/* Base Road Stroke */}
+                {/* Road Stroke */}
                 <line
                   x1={x1}
                   y1={y1}
@@ -201,7 +293,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   filter={isRouteEdge ? 'url(#routeGlow)' : undefined}
                 />
 
-                {/* Road label / Blocked badge indicator */}
+                {/* Road closure marker */}
                 {isBlocked && (
                   <g transform={`translate(${midX}, ${midY})`}>
                     <circle r="9" fill="#991b1b" stroke="#ffffff" strokeWidth="1.5" />
@@ -217,13 +309,13 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   </g>
                 )}
 
-                {/* Road info pill on hover */}
+                {/* Road hover popup */}
                 {hoveredEdge?.id === edge.id && (
-                  <g transform={`translate(${midX}, ${midY - 14})`}>
+                  <g transform={`translate(${midX}, ${midY - 14})`} pointerEvents="none">
                     <rect
-                      x="-65"
+                      x="-70"
                       y="-12"
-                      width="130"
+                      width="140"
                       height="24"
                       rx="4"
                       fill="#020617"
@@ -264,7 +356,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeDasharray="8 6"
-                  opacity="0.9"
+                  opacity="0.95"
                   className="animate-pulse"
                 />
               );
@@ -279,9 +371,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
             const isSelected = selectedNodeId === node.id;
             const isIncidentHere = activeIncident?.locationNodeId === node.id;
 
-            // Check if ambulance is here
             const ambulanceHere = ambulances.find((a) => a.currentNodeId === node.id);
-            // Check if hospital is here
             const facilityHere = facilities.find((f) => f.nodeId === node.id);
 
             return (
@@ -292,7 +382,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                 onMouseEnter={() => setHoveredNode(node)}
                 onMouseLeave={() => setHoveredNode(null)}
               >
-                {/* Node Base Circle */}
+                {/* Node Circle */}
                 <circle
                   cx={node.x}
                   cy={node.y}
@@ -316,7 +406,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   strokeWidth={isSelected || isIncidentHere ? 2.5 : 1.5}
                 />
 
-                {/* Pulse ring for active incident location */}
+                {/* Incident Pulse Ring */}
                 {isIncidentHere && (
                   <circle
                     cx={node.x}
@@ -330,7 +420,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   />
                 )}
 
-                {/* Hospital Badge Label on Map */}
+                {/* Facility Badge */}
                 {facilityHere && (
                   <g transform={`translate(${node.x}, ${node.y - 15})`} pointerEvents="none">
                     <rect
@@ -365,19 +455,31 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                 {ambulanceHere && !facilityHere && (
                   <g transform={`translate(${node.x}, ${node.y - 14})`} pointerEvents="none">
                     <rect
-                      x="-24"
+                      x="-26"
                       y="-10"
-                      width="48"
+                      width="52"
                       height="15"
                       rx="3"
-                      fill="#064e3b"
-                      stroke="#34d399"
-                      strokeWidth="0.7"
+                      fill={
+                        ambulanceHere.status === 'en_route_scene' || ambulanceHere.status === 'transporting'
+                          ? '#1e3a8a'
+                          : ambulanceHere.status === 'reserved'
+                          ? '#78350f'
+                          : '#064e3b'
+                      }
+                      stroke={
+                        ambulanceHere.status === 'en_route_scene' || ambulanceHere.status === 'transporting'
+                          ? '#60a5fa'
+                          : ambulanceHere.status === 'reserved'
+                          ? '#f59e0b'
+                          : '#34d399'
+                      }
+                      strokeWidth="0.75"
                     />
                     <text
                       textAnchor="middle"
                       y="1.5"
-                      fill="#a7f3d0"
+                      fill="#ffffff"
                       fontSize="7.5"
                       fontWeight="bold"
                     >
@@ -386,7 +488,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   </g>
                 )}
 
-                {/* Intersection Node ID text */}
+                {/* Node Label */}
                 <text
                   x={node.x}
                   y={node.y + 16}
@@ -399,7 +501,7 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                   {node.id}
                 </text>
 
-                {/* Hover Tooltip Card */}
+                {/* Tooltip on hover */}
                 {isHovered && (
                   <g transform={`translate(${node.x}, ${node.y - 35})`} pointerEvents="none">
                     <rect
@@ -411,7 +513,6 @@ export const CityMapVisualizer: React.FC<CityMapVisualizerProps> = ({
                       fill="#020617"
                       stroke="#38bdf8"
                       strokeWidth="1.2"
-                      filter="drop-shadow(0 4px 6px rgba(0,0,0,0.5))"
                     />
                     <text
                       textAnchor="middle"

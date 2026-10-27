@@ -8,6 +8,12 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     type: 'trauma_center',
     totalBeds: 45,
     availableBeds: 12,
+    totalIcuBeds: 16,
+    availableIcuBeds: 5,
+    bloodUnitsO: 24,
+    ventilatorsAvailable: 8,
+    traumaTeamsAvailable: 3,
+    traumaTeamReady: true,
     emergencyStatus: 'open',
     capabilities: [
       'Level 1 Comprehensive Trauma',
@@ -19,6 +25,7 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     ],
     contactPhone: '+1 (555) 911-8786',
     address: '820 Medical Center Boulevard, Eastside District',
+    incomingRequests: [],
   },
   {
     id: 'HOSP-TRAUMA-2',
@@ -27,6 +34,12 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     type: 'trauma_center',
     totalBeds: 35,
     availableBeds: 0, // Zero nominal beds available - used for capacity override testing!
+    totalIcuBeds: 12,
+    availableIcuBeds: 0,
+    bloodUnitsO: 10,
+    ventilatorsAvailable: 2,
+    traumaTeamsAvailable: 1,
+    traumaTeamReady: true,
     emergencyStatus: 'divert',
     capabilities: [
       'Level 2 Trauma Care',
@@ -36,6 +49,7 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     ],
     contactPhone: '+1 (555) 911-3420',
     address: '780 Valley Trauma Way, South Corridor',
+    incomingRequests: [],
   },
   {
     id: 'HOSP-GEN-1',
@@ -44,6 +58,12 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     type: 'general_hospital',
     totalBeds: 50,
     availableBeds: 8,
+    totalIcuBeds: 10,
+    availableIcuBeds: 2,
+    bloodUnitsO: 14,
+    ventilatorsAvailable: 5,
+    traumaTeamsAvailable: 1,
+    traumaTeamReady: true,
     emergencyStatus: 'open',
     capabilities: [
       'Emergency Department',
@@ -55,6 +75,7 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     ],
     contactPhone: '+1 (555) 911-5500',
     address: '560 Central Avenue, Midtown Civic Core',
+    incomingRequests: [],
   },
   {
     id: 'CLINIC-EAST',
@@ -63,6 +84,12 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     type: 'clinic',
     totalBeds: 10,
     availableBeds: 4,
+    totalIcuBeds: 0,
+    availableIcuBeds: 0,
+    bloodUnitsO: 2,
+    ventilatorsAvailable: 1,
+    traumaTeamsAvailable: 0,
+    traumaTeamReady: false,
     emergencyStatus: 'open',
     capabilities: [
       'Urgent Walk-in Care',
@@ -72,6 +99,7 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     ],
     contactPhone: '+1 (555) 911-1200',
     address: '860 East Coast Parkway, Harbor Heights',
+    incomingRequests: [],
   },
   {
     id: 'CLINIC-WEST',
@@ -80,6 +108,12 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     type: 'clinic',
     totalBeds: 8,
     availableBeds: 2,
+    totalIcuBeds: 0,
+    availableIcuBeds: 0,
+    bloodUnitsO: 0,
+    ventilatorsAvailable: 0,
+    traumaTeamsAvailable: 0,
+    traumaTeamReady: false,
     emergencyStatus: 'open',
     capabilities: [
       'Outpatient First Aid',
@@ -88,6 +122,7 @@ export const INITIAL_FACILITIES: MedicalFacility[] = [
     ],
     contactPhone: '+1 (555) 911-9400',
     address: '100 Westwood Avenue, West District',
+    incomingRequests: [],
   },
 ];
 

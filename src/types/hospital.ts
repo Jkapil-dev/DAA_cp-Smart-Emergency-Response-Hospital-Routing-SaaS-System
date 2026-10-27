@@ -1,6 +1,28 @@
 import { RouteResult } from './graph';
+import { SeverityLevel } from './incident';
 
 export type FacilityType = 'clinic' | 'general_hospital' | 'trauma_center';
+
+export interface ProvisionalResourceRequest {
+  bedsRequested: number;
+  icuBedsRequested: number;
+  bloodUnitsRequested: number;
+  traumaBayRequired: boolean;
+  reason: string;
+}
+
+export interface HospitalIncomingRequest {
+  id: string;
+  incidentId: string;
+  severity: SeverityLevel;
+  locationNodeId: string;
+  injuredCount: number;
+  estimatedArrivalMinutes: number;
+  resourceRequest: ProvisionalResourceRequest;
+  status: 'pending' | 'accepted' | 'divert' | 'capacity_override';
+  timestamp: string;
+  notes?: string;
+}
 
 export interface MedicalFacility {
   id: string;
@@ -9,10 +31,17 @@ export interface MedicalFacility {
   type: FacilityType;
   totalBeds: number;
   availableBeds: number;
+  totalIcuBeds: number;
+  availableIcuBeds: number;
+  bloodUnitsO: number; // O-Negative emergency units
+  ventilatorsAvailable: number;
+  traumaTeamsAvailable: number;
+  traumaTeamReady: boolean;
   emergencyStatus: 'open' | 'divert' | 'full';
   capabilities: string[];
   contactPhone: string;
   address: string;
+  incomingRequests?: HospitalIncomingRequest[];
 }
 
 export interface HospitalCandidateEvaluation {
@@ -37,4 +66,5 @@ export interface HospitalRecommendationResult {
   candidates: HospitalCandidateEvaluation[];
   requiresIntervention: boolean;
   interventionReason?: string;
+  provisionalResourceRequest?: ProvisionalResourceRequest;
 }

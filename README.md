@@ -81,9 +81,55 @@ Hospital selection prioritizes **clinical suitability over simple geographic pro
 
 ---
 
-## 6. Automated Scenario Test Suite (14 Tests)
+---
 
-The application includes an in-app scenario runner and automated Vitest test suite (`npm test`) covering all 14 required cases:
+## 5. Multi-Role Coordination Platform & Automated Workflow
+
+ResQRoutes implements an end-to-end automated emergency lifecycle with synchronized multi-role views:
+
+1. **Dashboard A: Citizen / Incident Reporter (`/reporter`):**
+   - High-urgency one-tap triage reporting with single/multiple casualty selectors.
+   - Preserves partial/unknown fields (e.g. unknown consciousness, trapped status) without blocking dispatch.
+   - Live passenger-style emergency tracking: assigned ambulance ID, GPS coordinates, ETA countdown, and route status.
+
+2. **Dashboard B: Ambulance Driver Cockpit (`/driver`):**
+   - In-cab tablet interface with high-contrast night styling and oversized buttons.
+   - Turn-by-turn routing navigation with simulated GPS location updates.
+   - Dispatch assignment acceptance/rejection (with mandatory decline reason prompt).
+   - In-transit on-scene patient assessment reporting and state advancement (`En Route` -> `On Scene` -> `Patient Loaded` -> `At Hospital`).
+
+3. **Dashboard C: Hospital Coordinator Console (`/hospital`):**
+   - Facility switcher with live bed, ICU, blood bank (O-neg), ventilator, and trauma team counts.
+   - Incoming emergency queue receiving automated provisional resource reservations.
+   - Clinical decisioning controls: Accept Patient, Divert (with automatic re-route recommendation), and Emergency Capacity Override.
+
+4. **Integrated Police Coordination Panel (`/police`):**
+   - Real-time incident intake monitoring with automated severity-based police alerts.
+   - Traffic interventions: Green Corridor signal preemption, congestion perimeter clearing, detour routings, and high-speed emergency escorts.
+
+---
+
+## 6. Uber-Inspired Expanding Square-Grid Ambulance Discovery
+
+Rather than scanning the entire vehicle fleet indiscriminately, ResQRoutes implements a spatial index grid partition:
+- **Grid Partition:** City canvas is discretized into a 4-column $\times$ 3-row spatial grid ($4 \times 3 = 12$ uniform cells).
+- **Ring-by-Ring Expansion:** Searches outwards starting from the incident's cell (**Ring 0**) using Chebyshev distance ($\text{Ring } 1, 2, \dots$).
+- **Graph-Based Ranking:** Candidates within active grid cells are ranked not by naive straight-line distance, but by **actual graph travel time** along open, unblocked roads.
+- **Complexity Advantage:** Evaluates $O(k)$ local candidates instead of $O(|A|)$ full-fleet scans, while falling back gracefully to adjacent rings until an eligible unit is secured.
+
+---
+
+## 7. Algorithm & Performance Lab
+
+The interactive **Algorithm Lab** provides empirical comparisons:
+- **Routing Engine:** Side-by-side execution of **Dijkstra** vs. **A***, measuring execution runtime ($\mu s$), visited nodes, path lengths, and heuristic efficiency.
+- **Discovery Engine:** Benchmark of **Expanding Square-Grid Search** vs. **Full-Fleet Scan**, tracking evaluated candidates, scan latency, and unit qualification rates.
+
+---
+
+## 8. Automated Scenario Test Suite (18 Scenarios, 23 Tests)
+
+The application includes an in-app scenario runner and automated Vitest test suite (`npm test`) covering all 18 specified scenarios:
 
 1. `SCENARIO-01`: Minor accident routes to suitable nearby clinic.
 2. `SCENARIO-02`: Inadequate nearby clinic is excluded for severe accident.
@@ -99,10 +145,14 @@ The application includes an in-app scenario runner and automated Vitest test sui
 12. `SCENARIO-12`: Critical indicators override and suppress lower-severity signals.
 13. `SCENARIO-13`: Attached photographs serve as visual preview without altering logic.
 14. `SCENARIO-14`: Provisional hospital route prepared while ambulance is en route to scene.
+15. `SCENARIO-15`: Expanding grid finds eligible unit in Ring 0 without full-fleet search.
+16. `SCENARIO-16`: Ambulance candidate ranking prioritizes graph travel time over grid proximity.
+17. `SCENARIO-17`: Driver decline marks unit declined and re-dispatches next best candidate.
+18. `SCENARIO-18`: Hospital divert triggers automatic re-route to next qualified hospital.
 
 ---
 
-## 7. Installation & Quick Start
+## 9. Installation & Quick Start
 
 ### Prerequisites
 - **Node.js:** v18.0.0 or later (v25.x tested)
@@ -117,7 +167,7 @@ npm install
 ```bash
 npm test
 ```
-All 19 tests (14 system scenarios + 5 graph algorithm unit tests) run in Vitest.
+All 23 tests (18 system scenarios + 5 graph algorithm unit tests) run in Vitest.
 
 ### Start Local Development Server
 ```bash
@@ -132,8 +182,10 @@ npm run build
 
 ---
 
-## 8. Known Limitations & Scope Boundaries
+## 10. Known Limitations & Scope Boundaries
 
 - **Simulated Environment:** Does not interface with real-world computer-aided dispatch (CAD) or live hospital Electronic Health Record (EHR) systems.
 - **Static Map Graph:** Road network is a simulated topology modeled in SVG rather than a GIS vector tile service.
 - **Rule Engine Scope:** Designed as an educational demonstration of deterministic prioritization, not a substitute for formal protocols like Manchester Triage or START.
+- **No Paid APIs or AI Models:** Purely deterministic algorithms (Dijkstra, A*), spatial grid indexing, and simulated real-time event drivers.
+

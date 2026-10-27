@@ -178,7 +178,7 @@ export const CrewReportModal: React.FC<CrewReportModalProps> = ({
             <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
               <input
                 type="checkbox"
-                checked={suspectedMajorInjury}
+                checked={suspectedMajorInjury === true}
                 onChange={(e) => setSuspectedMajorInjury(e.target.checked)}
                 className="rounded border-slate-300 text-blue-600"
               />
@@ -188,7 +188,7 @@ export const CrewReportModal: React.FC<CrewReportModalProps> = ({
             <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
               <input
                 type="checkbox"
-                checked={trappedInVehicle}
+                checked={trappedInVehicle === true}
                 onChange={(e) => setTrappedInVehicle(e.target.checked)}
                 className="rounded border-slate-300 text-blue-600"
               />

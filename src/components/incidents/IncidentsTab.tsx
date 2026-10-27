@@ -328,7 +328,7 @@ export const IncidentsTab: React.FC<IncidentsTabProps> = ({ onOpenReportModal })
                       <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={editMajorInjury}
+                          checked={editMajorInjury === true}
                           onChange={(e) => setEditMajorInjury(e.target.checked)}
                         />
                         <span>Suspected Major Trauma</span>
@@ -336,7 +336,7 @@ export const IncidentsTab: React.FC<IncidentsTabProps> = ({ onOpenReportModal })
                       <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={editTrapped}
+                          checked={editTrapped === true}
                           onChange={(e) => setEditTrapped(e.target.checked)}
                         />
                         <span>Trapped in Vehicle</span>

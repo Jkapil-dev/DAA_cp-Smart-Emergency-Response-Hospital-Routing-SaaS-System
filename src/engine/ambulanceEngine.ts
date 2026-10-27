@@ -3,10 +3,13 @@ import { CityNetwork, RoutingObjective } from '../types/graph';
 import { Incident } from '../types/incident';
 import { dijkstra } from '../algorithms/dijkstra';
 import { aStar } from '../algorithms/astar';
+import { searchAmbulanceExpandingGrid } from './gridDiscoveryEngine';
 
 export interface AmbulanceEngineOptions {
   algorithm?: 'dijkstra' | 'astar';
   objective?: RoutingObjective;
+  discoveryMethod?: 'grid_expansion' | 'full_fleet_scan';
+  excludedAmbulanceIds?: string[];
 }
 
 export function selectBestAmbulance(
@@ -17,15 +20,92 @@ export function selectBestAmbulance(
 ): AmbulanceRecommendation | null {
   const algorithm = options.algorithm || 'dijkstra';
   const objective = options.objective || 'travelTime';
+  const discoveryMethod = options.discoveryMethod || 'grid_expansion';
   const router = algorithm === 'astar' ? aStar : dijkstra;
-
   const requiresALS = incident.severityEvaluation.requiresALSAmbulance;
 
-  // Evaluate all ambulances
+  if (discoveryMethod === 'grid_expansion') {
+    const gridResult = searchAmbulanceExpandingGrid(ambulances, incident, network, {
+      algorithm,
+      objective,
+      excludedAmbulanceIds: options.excludedAmbulanceIds,
+    });
+
+    if (!gridResult.selectedAmbulanceId) {
+      return null;
+    }
+
+    const winner = ambulances.find((a) => a.id === gridResult.selectedAmbulanceId)!;
+    const route = router(network, winner.currentNodeId, incident.locationNodeId, objective);
+
+    // Build candidateRankings ensuring ALL ambulances in fleet are accounted for
+    const evaluatedMap = new Map(gridResult.evaluatedCandidates.map((c) => [c.ambulanceId, c]));
+
+    const candidateRankings: AmbulanceRecommendation['candidateRankings'] = ambulances.map((amb) => {
+      const evalTrace = evaluatedMap.get(amb.id);
+      if (evalTrace) {
+        return {
+          ambulance: amb,
+          travelTimeMinutes: evalTrace.travelTimeMinutes,
+          distanceKm: evalTrace.distanceKm,
+          isEligible: evalTrace.isEligible,
+          ineligibilityReason: evalTrace.isEligible ? undefined : evalTrace.reason,
+        };
+      }
+
+      // If outside searched rings because a winner was discovered in an inner ring:
+      const isAvailable = amb.status === 'available';
+      const meetsCap = !requiresALS || amb.type === 'ALS';
+      let ineligibilityReason: string | undefined;
+
+      if (!isAvailable) {
+        ineligibilityReason = `Ambulance is currently ${amb.status} (Occupied on other duty)`;
+      } else if (!meetsCap) {
+        ineligibilityReason = `Triage requires ALS; unit provides ${amb.type} only.`;
+      } else {
+        ineligibilityReason = `Outside expanding grid ring (Winner discovered in Ring ${gridResult.selectedRingIndex}).`;
+      }
+
+      return {
+        ambulance: amb,
+        travelTimeMinutes: Infinity,
+        distanceKm: Infinity,
+        isEligible: false,
+        ineligibilityReason,
+      };
+    });
+
+    return {
+      recommendedAmbulance: winner,
+      routeToIncident: {
+        path: route.path,
+        travelTimeMinutes: route.totalTravelTimeMinutes,
+        distanceKm: route.totalDistanceKm,
+      },
+      selectionReason: gridResult.selectionReason,
+      discoveryMethod: 'grid_expansion',
+      gridRingDiscovered: gridResult.selectedRingIndex ?? undefined,
+      candidateRankings: candidateRankings.sort((a, b) => a.travelTimeMinutes - b.travelTimeMinutes),
+    };
+  }
+
+  // Full-fleet scan implementation
+  const excludedIds = new Set(options.excludedAmbulanceIds || []);
   const evaluatedCandidates: AmbulanceRecommendation['candidateRankings'] = [];
 
   for (const amb of ambulances) {
-    const isAvailable = amb.status === 'available';
+    if (excludedIds.has(amb.id)) {
+      evaluatedCandidates.push({
+        ambulance: amb,
+        travelTimeMinutes: Infinity,
+        distanceKm: Infinity,
+        isEligible: false,
+        ineligibilityReason: 'Driver previously declined assignment.',
+      });
+      continue;
+    }
+
+    const isAvailable = amb.status === 'available' || (amb.status === 'reserved' && amb.reservedForIncidentId === incident.id);
     if (!isAvailable) {
       evaluatedCandidates.push({
         ambulance: amb,
@@ -37,7 +117,6 @@ export function selectBestAmbulance(
       continue;
     }
 
-    // Check capability match
     const meetsCapability = !requiresALS || amb.type === 'ALS';
     let ineligibilityReason: string | undefined;
 
@@ -45,7 +124,6 @@ export function selectBestAmbulance(
       ineligibilityReason = `Incident requires Advanced Life Support (ALS) for ${incident.severityEvaluation.severity} triage; unit provides BLS only.`;
     }
 
-    // Calculate route from ambulance location to incident
     const route = router(network, amb.currentNodeId, incident.locationNodeId, objective);
 
     if (!route.found) {
@@ -68,29 +146,26 @@ export function selectBestAmbulance(
     });
   }
 
-  // Rank eligible ambulances first by travel time
   const eligibleCandidates = evaluatedCandidates
     .filter((c) => c.isEligible && c.travelTimeMinutes < Infinity)
     .sort((a, b) => a.travelTimeMinutes - b.travelTimeMinutes);
 
-  // Fallback: If no ALS unit is available for critical/severe, pick the fastest available BLS unit with a clear warning
   let selected = eligibleCandidates[0];
   let isFallback = false;
 
   if (!selected) {
     const availableAny = evaluatedCandidates
-      .filter((c) => c.ambulance.status === 'available' && c.travelTimeMinutes < Infinity)
+      .filter((c) => (c.ambulance.status === 'available' || c.ambulance.reservedForIncidentId === incident.id) && c.travelTimeMinutes < Infinity)
       .sort((a, b) => a.travelTimeMinutes - b.travelTimeMinutes);
 
     if (availableAny.length > 0) {
       selected = availableAny[0];
       isFallback = true;
     } else {
-      return null; // Zero available ambulances reachable
+      return null;
     }
   }
 
-  // Calculate final route for the winner
   const bestRoute = router(
     network,
     selected.ambulance.currentNodeId,
@@ -113,6 +188,7 @@ export function selectBestAmbulance(
       distanceKm: bestRoute.totalDistanceKm,
     },
     selectionReason,
+    discoveryMethod: 'full_fleet_scan',
     candidateRankings: evaluatedCandidates.sort((a, b) => a.travelTimeMinutes - b.travelTimeMinutes),
   };
 }

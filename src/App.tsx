@@ -9,6 +9,10 @@ import { HospitalsTab } from './components/hospitals/HospitalsTab';
 import { AlgorithmLabTab } from './components/algorithms/AlgorithmLabTab';
 import { ScenariosTab } from './components/scenarios/ScenariosTab';
 import { IncidentReportModal } from './components/incidents/IncidentReportModal';
+import { ReporterDashboard } from './components/reporter/ReporterDashboard';
+import { DriverDashboard } from './components/driver/DriverDashboard';
+import { HospitalDashboard } from './components/hospital/HospitalDashboard';
+import { PoliceCoordinationPanel } from './components/police/PoliceCoordinationPanel';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
@@ -25,11 +29,24 @@ function AppContent() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <Header />
+        {/* Top Header with Role Switcher */}
+        <Header activeTab={activeTab} onSelectTab={setActiveTab} />
 
         {/* Tab Body View */}
         <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto space-y-8">
+          {/* Role Dashboard A: Incident Reporter */}
+          {activeTab === 'reporter' && <ReporterDashboard />}
+
+          {/* Role Dashboard B: Ambulance Driver Cockpit */}
+          {activeTab === 'driver' && <DriverDashboard />}
+
+          {/* Role Dashboard C: Hospital Coordinator */}
+          {activeTab === 'hospital' && <HospitalDashboard />}
+
+          {/* Police & Traffic Coordination Panel */}
+          {activeTab === 'police' && <PoliceCoordinationPanel />}
+
+          {/* Operations & Command Center */}
           {activeTab === 'overview' && (
             <OverviewTab
               onSelectTab={setActiveTab}
@@ -45,18 +62,20 @@ function AppContent() {
 
           {activeTab === 'hospitals' && <HospitalsTab />}
 
+          {/* DAA Algorithm Lab */}
           {activeTab === 'algorithm-lab' && <AlgorithmLabTab />}
 
+          {/* Automated System Scenarios */}
           {activeTab === 'scenarios' && <ScenariosTab />}
 
           {/* Academic DAA Simulation Disclaimer */}
           <footer className="mt-12 pt-6 pb-4 border-t border-slate-200 text-center text-xs text-slate-500 space-y-1">
             <p className="font-semibold text-slate-700">
-              ResQRoute — Smart Emergency Response & Hospital Routing System (DAA Academic Project)
+              ResQRoutes — Smart Emergency Response & Hospital Routing SaaS Platform (DAA Academic Project)
             </p>
             <p className="text-[11px] text-slate-400">
-              Deterministic rule-based triage • Dijkstra & A* Graph Optimization • No AI / ML models •
-              Simulated city road network and medical census data.
+              Deterministic rule-based triage • Dijkstra & A* Graph Optimization • Expanding Square-Grid Ambulance Discovery •
+              Simulated road network, medical census, and traffic alerts.
             </p>
           </footer>
         </main>

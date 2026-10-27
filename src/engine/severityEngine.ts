@@ -3,6 +3,7 @@ import {
   SeverityEvaluation,
   SeverityLevel,
 } from '../types/incident';
+import { ProvisionalResourceRequest } from '../types/hospital';
 
 export interface SeverityRule {
   id: string;
@@ -103,12 +104,31 @@ export const SEVERITY_RULES: SeverityRule[] = [
  * Deterministic rule-based evaluation of incident observations.
  * Critical rules strictly take precedence over lower-tier rules.
  * Photographs are strictly supporting visual evidence and do NOT affect severity.
+ * Unknown fields remain recorded as missingInformation and never default to negative.
  */
 export function evaluateSeverity(observations: IncidentObservations): SeverityEvaluation {
   const triggeredCritical: string[] = [];
   const triggeredSevere: string[] = [];
   const triggeredModerate: string[] = [];
   const overrides: string[] = [];
+  const missingInformation: string[] = [];
+
+  // Identify unknown fields to preserve caller uncertainty
+  if (observations.consciousness === 'unknown') {
+    missingInformation.push('Consciousness state unknown / unconfirmed by caller');
+  }
+  if (observations.breathing === 'unknown') {
+    missingInformation.push('Breathing adequacy unknown');
+  }
+  if (observations.bleeding === 'unknown') {
+    missingInformation.push('Bleeding severity unobserved');
+  }
+  if (observations.suspectedMajorInjury === 'unknown') {
+    missingInformation.push('Major trauma presence unverified');
+  }
+  if (observations.trappedInVehicle === 'unknown') {
+    missingInformation.push('Vehicle entrapment status unconfirmed');
+  }
 
   for (const rule of SEVERITY_RULES) {
     if (rule.priority === 1 && rule.condition(observations)) {
@@ -158,12 +178,69 @@ export function evaluateSeverity(observations: IncidentObservations): SeverityEv
 
   const requiresALSAmbulance = finalSeverity === 'critical' || finalSeverity === 'severe';
 
+  // Manual review required if critical fields were unknown or multiple injuries with missing vitals
+  const requiresManualReview =
+    missingInformation.length >= 2 ||
+    (finalSeverity === 'minor' && missingInformation.length > 0);
+
   return {
     severity: finalSeverity,
     reasons: decisiveReasons,
     overrides,
+    missingInformation,
+    requiresManualReview,
     requiredFacilityType,
     requiresALSAmbulance,
     timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Deterministic calculation of provisional hospital support resources requested
+ * based on severity level, casualties count, and reported signs.
+ */
+export function calculateProvisionalResourceRequest(
+  severity: SeverityLevel,
+  injuredCount: number,
+  observations: IncidentObservations
+): ProvisionalResourceRequest {
+  const count = Math.max(1, injuredCount || 1);
+
+  if (severity === 'critical') {
+    return {
+      bedsRequested: count,
+      icuBedsRequested: Math.min(count, 2),
+      bloodUnitsRequested: observations.bleeding === 'severe_uncontrolled' ? 4 : 2,
+      traumaBayRequired: true,
+      reason: `Provisional Level 1 trauma alert: ${count} critical patient(s). Immediate trauma bay preparation and blood cross-match requested.`,
+    };
+  }
+
+  if (severity === 'severe') {
+    return {
+      bedsRequested: count,
+      icuBedsRequested: 1,
+      bloodUnitsRequested: observations.bleeding === 'severe_uncontrolled' ? 2 : 0,
+      traumaBayRequired: true,
+      reason: `Provisional trauma admission: ${count} severe patient(s). Surgical observation bed and resuscitation readiness requested.`,
+    };
+  }
+
+  if (severity === 'moderate') {
+    return {
+      bedsRequested: count,
+      icuBedsRequested: 0,
+      bloodUnitsRequested: 0,
+      traumaBayRequired: false,
+      reason: `General emergency admission: ${count} moderate patient(s). Standard ED acute care bed and diagnostic radiology requested.`,
+    };
+  }
+
+  return {
+    bedsRequested: 1,
+    icuBedsRequested: 0,
+    bloodUnitsRequested: 0,
+    traumaBayRequired: false,
+    reason: `Outpatient urgent care slot: 1 minor casualty. Basic assessment and wound treatment requested.`,
   };
 }
