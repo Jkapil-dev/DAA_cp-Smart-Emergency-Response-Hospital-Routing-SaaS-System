@@ -131,14 +131,6 @@ export interface GridSearchOptions {
   excludedAmbulanceIds?: string[]; // E.g., ambulances that previously declined this incident
 }
 
-/**
- * Executes expanding square-grid ambulance discovery.
- * Step 1: Identify incident cell.
- * Step 2: Search nearest cell (Ring 0).
- * Step 3: Expand outward in square rings (Ring 1, 2, ...).
- * Step 4: For ambulances found in discovered area, evaluate feasibility and rank by graph travel time.
- * Step 5: Stop when eligible candidate found or escalate if fleet exhausted.
- */
 export function searchAmbulanceExpandingGrid(
   ambulances: Ambulance[],
   incident: Incident,

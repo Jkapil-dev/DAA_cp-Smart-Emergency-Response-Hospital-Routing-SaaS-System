@@ -1,15 +1,15 @@
 import React from 'react';
 import { useSimulation } from '../../context/SimulationContext';
-import { RoutingObjective } from '../../types/graph';
-import { NavTab } from './Sidebar';
-import { Route, Clock, Ruler, Shield, Layers, Radio, User, Navigation, Building2 } from 'lucide-react';
+import { ChevronRight, Clock, Layers, LogOut, Ruler } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab?: NavTab;
-  onSelectTab?: (tab: NavTab) => void;
+  role: 'reporter' | 'driver' | 'hospital';
+  userName: string;
+  onLogout: () => void;
+  onOpenProfile: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
+export const Header: React.FC<HeaderProps> = ({ role, userName, onLogout, onOpenProfile }) => {
   const {
     routingAlgorithm,
     setRoutingAlgorithm,
@@ -27,57 +27,30 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
     <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
       {/* Left: Role Switcher & Incident Picker */}
       <div className="flex flex-wrap items-center gap-4">
-        {onSelectTab && (
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 hidden sm:inline">
-              Role:
+        <button
+          type="button"
+          onClick={onOpenProfile}
+          className="group flex items-center gap-2.5 rounded-xl border border-transparent px-2 py-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50"
+          aria-label="Open my profile"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-slate-100 shadow-sm ring-2 ring-white">
+            {userName.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}
+          </span>
+          <span className="hidden sm:block">
+            <span className="block max-w-40 truncate text-xs font-black text-slate-800">{userName}</span>
+            <span className="mt-0.5 block text-[9.5px] font-bold uppercase tracking-[0.12em] text-slate-400">
+              {role === 'reporter' ? 'Emergency Reporter' : role === 'driver' ? 'Ambulance Driver' : 'Hospital Coordinator'}
             </span>
-            <button
-              onClick={() => onSelectTab('reporter')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
-                activeTab === 'reporter'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Reporter (A)</span>
-            </button>
-            <button
-              onClick={() => onSelectTab('driver')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
-                activeTab === 'driver'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Driver (B)</span>
-            </button>
-            <button
-              onClick={() => onSelectTab('hospital')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
-                activeTab === 'hospital'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Hospital (C)</span>
-            </button>
-            <button
-              onClick={() => onSelectTab('overview')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition ${
-                activeTab === 'overview'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Command Center
-            </button>
-          </div>
-        )}
+          </span>
+          <ChevronRight className="hidden h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500 sm:block" />
+        </button>
+        <span className="h-7 w-px bg-slate-200" />
+        <button type="button" onClick={onLogout} className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold text-slate-500 transition hover:bg-rose-50 hover:text-rose-700">
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">Logout</span>
+        </button>
 
+        {role !== 'reporter' && (
         <div>
           <select
             value={activeIncidentId || ''}
@@ -92,8 +65,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
             ))}
           </select>
         </div>
+        )}
 
-        {blockedRoadsCount > 0 && (
+        {role !== 'reporter' && blockedRoadsCount > 0 && (
           <div className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
             <span>{blockedRoadsCount} Road Closed</span>
@@ -101,7 +75,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
         )}
       </div>
 
-      {/* Right: Routing Controls */}
+      {/* Right: Driver-only routing controls */}
+      {role === 'driver' && (
       <div className="flex items-center gap-3">
         {/* Algorithm Switch */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
@@ -157,6 +132,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
           </button>
         </div>
       </div>
+      )}
     </header>
   );
 };

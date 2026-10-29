@@ -14,6 +14,7 @@ export interface IncidentObservations {
   additionalNotes: string;
   callerName?: string;
   callerPhone?: string;
+  callerId?: string;
   photoUrls?: string[]; // Supporting evidence only (previews, does not alter rule logic)
 }
 

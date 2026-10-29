@@ -1,18 +1,15 @@
 import React from 'react';
 import {
-  LayoutDashboard,
-  AlertOctagon,
-  Ambulance as AmbulanceIcon,
   Building2,
-  Cpu,
-  CheckSquare,
   ShieldCheck,
   RefreshCw,
   Radio,
   User,
   Navigation,
+  LogOut,
 } from 'lucide-react';
 import { useSimulation } from '../../context/SimulationContext';
+import { UserRole } from '../auth/AuthPage';
 
 export type NavTab =
   | 'reporter'
@@ -24,24 +21,31 @@ export type NavTab =
   | 'dispatch'
   | 'hospitals'
   | 'algorithm-lab'
-  | 'scenarios';
+  | 'scenarios'
+  | 'profile';
 
 interface SidebarProps {
   activeTab: NavTab;
+  role: UserRole;
+  userName: string;
   onSelectTab: (tab: NavTab) => void;
-  onOpenReportModal: () => void;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
+  role,
+  userName,
   onSelectTab,
-  onOpenReportModal,
+  onLogout,
 }) => {
-  const { incidents, ambulances, facilities, policeAlerts, resetSimulationData } = useSimulation();
+  const { policeAlerts, resetSimulationData } = useSimulation();
 
-  const activeIncidentsCount = incidents.filter((i) => i.stage !== 'completed').length;
-  const availableAmbulancesCount = ambulances.filter((a) => a.status === 'available').length;
-  const openFacilitiesCount = facilities.filter((f) => f.emergencyStatus === 'open').length;
+  const roleLabels: Record<UserRole, string> = {
+    reporter: 'Emergency Reporter',
+    driver: 'Ambulance Driver',
+    hospital: 'Hospital Coordinator',
+  };
 
   const roleDashboards = [
     {
@@ -74,53 +78,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  const operationalModules = [
-    {
-      id: 'overview' as NavTab,
-      label: 'Command Center',
-      icon: LayoutDashboard,
-      badge: null,
-    },
-    {
-      id: 'incidents' as NavTab,
-      label: 'Incidents & Triage',
-      icon: AlertOctagon,
-      badge: activeIncidentsCount > 0 ? activeIncidentsCount : null,
-      badgeColor: 'bg-rose-500/20 text-rose-300',
-    },
-    {
-      id: 'dispatch' as NavTab,
-      label: 'Ambulance Fleet',
-      icon: AmbulanceIcon,
-      badge: `${availableAmbulancesCount}/${ambulances.length}`,
-      badgeColor: 'bg-emerald-500/20 text-emerald-300',
-    },
-    {
-      id: 'hospitals' as NavTab,
-      label: 'Hospitals & Beds',
-      icon: Building2,
-      badge: `${openFacilitiesCount}/${facilities.length}`,
-      badgeColor: 'bg-blue-500/20 text-blue-300',
-    },
-  ];
-
-  const daaModules = [
-    {
-      id: 'algorithm-lab' as NavTab,
-      label: 'Algorithm Lab',
-      icon: Cpu,
-      badge: 'Dijkstra / A*',
-      badgeColor: 'bg-purple-500/20 text-purple-300',
-    },
-    {
-      id: 'scenarios' as NavTab,
-      label: 'Test Scenarios',
-      icon: CheckSquare,
-      badge: 'Suite',
-      badgeColor: 'bg-teal-500/20 text-teal-300',
-    },
-  ];
-
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 min-h-screen text-slate-200">
       {/* Brand & App Title */}
@@ -136,25 +93,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Quick Action: Report Incident */}
-      <div className="p-3">
-        <button
-          onClick={onOpenReportModal}
-          className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-semibold py-2.5 px-3 rounded-lg shadow-sm shadow-rose-900/30 transition text-xs"
-        >
-          <AlertOctagon className="w-4 h-4" />
-          <span>Quick Emergency Intake</span>
-        </button>
-      </div>
-
       {/* Navigation Items */}
       <nav className="flex-1 px-3 space-y-4 overflow-y-auto">
         {/* Section 1: 3 Role-Based Dashboards */}
         <div className="space-y-1">
           <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-3 py-1">
-            Three Role Dashboards
+            {roleLabels[role]} Workspace
           </div>
-          {roleDashboards.map((item) => {
+          {roleDashboards.filter((item) => item.id === role).map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
@@ -185,77 +131,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Section 2: Operations Modules */}
-        <div className="space-y-1 border-t border-slate-800/80 pt-3">
-          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-3 py-1">
-            Operations Center
-          </div>
-          {operationalModules.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-blue-700 text-blue-100' : item.badgeColor
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+          <p className="text-xs font-bold text-slate-300">Dedicated workspace</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+            This account can only access its assigned role dashboard.
+          </p>
         </div>
-
-        {/* Section 3: DAA Academic & Testing */}
-        <div className="space-y-1 border-t border-slate-800/80 pt-3">
-          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-3 py-1">
-            DAA Algorithms & Testing
-          </div>
-          {daaModules.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-blue-700 text-blue-100' : item.badgeColor
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        
       </nav>
 
       {/* Bottom Controls */}
@@ -270,12 +152,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </p>
         </div>
 
+        {role !== 'reporter' && (
+          <button
+            onClick={resetSimulationData}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-medium transition"
+          >
+            <RefreshCw className="w-3 h-3 text-slate-400" />
+            <span>Reset Simulation Data</span>
+          </button>
+        )}
         <button
-          onClick={resetSimulationData}
-          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-medium transition"
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-rose-900/60 text-rose-300 hover:bg-rose-950/50 text-xs font-medium transition"
         >
-          <RefreshCw className="w-3 h-3 text-slate-400" />
-          <span>Reset Simulation Data</span>
+          <LogOut className="w-3 h-3" />
+          <span>Logout {userName}</span>
         </button>
       </div>
     </aside>

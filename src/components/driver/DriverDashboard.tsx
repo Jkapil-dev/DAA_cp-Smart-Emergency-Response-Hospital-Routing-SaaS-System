@@ -33,6 +33,7 @@ export const DriverDashboard: React.FC = () => {
     setSelectedAmbulanceId,
     routingAlgorithm,
     routingObjective,
+    driverRespondToRequest,
     driverAcknowledgeDispatch,
     driverStepMovement,
     driverMarkArrivalAtScene,
@@ -45,11 +46,22 @@ export const DriverDashboard: React.FC = () => {
   const currentAmbulance =
     ambulances.find((a) => a.id === selectedAmbulanceId) || ambulances[0];
 
-  const assignedIncident = incidents.find(
-    (inc) =>
-      inc.id === currentAmbulance?.currentIncidentId ||
-      inc.id === currentAmbulance?.reservedForIncidentId ||
-      inc.assignedAmbulanceId === currentAmbulance?.id
+  const assignedIncident = currentAmbulance?.status === 'available'
+    ? undefined
+    : incidents.find(
+      (inc) =>
+        inc.id === currentAmbulance?.currentIncidentId ||
+        inc.id === currentAmbulance?.reservedForIncidentId ||
+        inc.assignedAmbulanceId === currentAmbulance?.id
+    );
+
+  const passedIncidentIds = new Set(
+    currentAmbulance?.declineHistory?.map((entry) => entry.incidentId) || []
+  );
+  const availableRequests = incidents.filter((incident) =>
+    incident.stage === 'reported'
+      && !incident.assignedAmbulanceId
+      && !passedIncidentIds.has(incident.id)
   );
 
   // Decline modal / reason selector state
@@ -111,6 +123,11 @@ export const DriverDashboard: React.FC = () => {
   const handleAccept = () => {
     if (!assignedIncident || !currentAmbulance) return;
     driverAcknowledgeDispatch(currentAmbulance.id, assignedIncident.id, true);
+  };
+
+  const handleRequestResponse = (incidentId: string, accept: boolean) => {
+    if (!currentAmbulance) return;
+    driverRespondToRequest(currentAmbulance.id, incidentId, accept);
   };
 
   const handleConfirmDecline = () => {
@@ -433,18 +450,50 @@ export const DriverDashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-            <AmbulanceIcon className="w-6 h-6" />
+        <section className="space-y-4">
+          <div className="flex items-end justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Dispatch console</p>
+              <h3 className="mt-1 text-xl font-black text-slate-900">Available emergency requests</h3>
+              <p className="mt-1 text-xs text-slate-500">Unit {currentAmbulance?.callSign} · {availableRequests.length} real-time {availableRequests.length === 1 ? 'request' : 'requests'} visible</p>
+            </div>
+            <span className="flex h-10 items-center gap-2 rounded-full bg-emerald-50 px-3 text-xs font-bold text-emerald-700">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> Ready
+            </span>
           </div>
-          <h3 className="text-base font-extrabold text-slate-800">
-            No Active Dispatch for Unit {currentAmbulance?.callSign}
-          </h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            This unit is stationed at Node {currentAmbulance?.currentNodeId}. When an emergency is
-            reported, the expanding square-grid engine will automatically assign the best candidate.
-          </p>
-        </div>
+
+          {availableRequests.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400"><AmbulanceIcon className="h-6 w-6" /></div>
+              <h3 className="mt-3 text-base font-extrabold text-slate-800">No open requests</h3>
+              <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-slate-500">New emergency reports will appear here immediately. Units that accept a request remove it from every other dashboard.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {availableRequests.map((incident) => {
+                const requestRoute = router(network, currentAmbulance.currentNodeId, incident.locationNodeId, routingObjective);
+                const observer = incident.initialObservations;
+                return (
+                  <article key={incident.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                      <div className="min-w-0"><div className="flex items-center gap-2"><span className="rounded-md bg-rose-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">New request</span><span className="font-black text-slate-900">{incident.id}</span></div><h4 className="mt-3 truncate text-base font-black text-slate-900">{incident.title}</h4><p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><MapPin className="h-3.5 w-3.5 shrink-0 text-rose-500" />{incident.locationAddress || `Node ${incident.locationNodeId}`}</p></div>
+                      <SeverityBadge severity={incident.severityEvaluation.severity} size="sm" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 px-5 py-4">
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5"><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Distance</p><p className="mt-1 text-sm font-black text-slate-800">{requestRoute.totalDistanceKm} km</p></div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5"><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Arrival</p><p className="mt-1 text-sm font-black text-slate-800">{requestRoute.totalTravelTimeMinutes} min</p></div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5"><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Injured</p><p className="mt-1 text-sm font-black text-slate-800">{observer.injuredCount}</p></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 px-5 pb-5">
+                      <button type="button" onClick={() => handleRequestResponse(incident.id, false)} className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50"><XCircle className="h-4 w-4" />Pass</button>
+                      <button type="button" onClick={() => handleRequestResponse(incident.id, true)} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3 text-xs font-black text-white shadow-md shadow-emerald-900/15 transition hover:bg-emerald-500"><CheckCircle2 className="h-4 w-4" />Accept & route</button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {/* Decline Dispatch Modal with Reason */}

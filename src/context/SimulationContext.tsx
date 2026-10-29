@@ -70,6 +70,12 @@ interface SimulationContextValue {
     accept: boolean,
     declineReason?: string
   ) => void;
+  driverRespondToRequest: (
+    ambulanceId: string,
+    incidentId: string,
+    accept: boolean,
+    passReason?: string
+  ) => boolean;
   driverStepMovement: (ambulanceId: string) => void;
   driverMarkArrivalAtScene: (ambulanceId: string, incidentId: string) => void;
   driverSubmitOnSceneReport: (
@@ -248,7 +254,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         locationAddress: node ? `${node.name} (${node.zone} Sector)` : `Node ${locationNodeId}`,
         coordinates: node ? { x: node.x, y: node.y } : { x: 500, y: 300 },
         reportedAt: new Date().toISOString(),
-        stage: 'ambulance_searching',
+        stage: 'reported',
         initialObservations: observations,
         currentObservations: observations,
         severityEvaluation: evaluation,
@@ -319,56 +325,108 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         );
       }
 
-      // Automated Step 3: Execute expanding square-grid ambulance discovery
-      const gridResult = searchAmbulanceExpandingGrid(ambulances, newIncident, network, {
-        config: gridConfig,
-        algorithm: routingAlgorithm,
-        objective: routingObjective,
-      });
-      setLatestGridResult(gridResult);
-
-      let finalIncident = { ...newIncident };
-
-      if (gridResult.selectedAmbulanceId) {
-        const selectedId = gridResult.selectedAmbulanceId;
-        finalIncident.stage = 'ambulance_assigned';
-        finalIncident.assignedAmbulanceId = selectedId;
-        finalIncident.notesHistory.push({
-          timestamp: new Date().toISOString(),
-          note: `Expanding grid search assigned candidate ${selectedId} from Ring ${gridResult.selectedRingIndex}. Pending driver acknowledgement.`,
-          author: 'Grid Discovery Engine',
-        });
-
-        // Reserve ambulance so it cannot be double-assigned
-        setAmbulances((prev) =>
-          prev.map((a) => {
-            if (a.id === selectedId) {
-              return {
-                ...a,
-                status: 'reserved',
-                reservedForIncidentId: newId,
-                currentIncidentId: newId,
-              };
-            }
-            return a;
-          })
-        );
-
-        setSelectedAmbulanceId(selectedId);
-      } else {
-        finalIncident.stage = 'escalated';
-        finalIncident.notesHistory.push({
-          timestamp: new Date().toISOString(),
-          note: gridResult.escalationReason || 'Fleet exhausted during grid search. Mutual aid required.',
-          author: 'Grid Discovery Engine',
-        });
-      }
+      const finalIncident = {
+        ...newIncident,
+        notesHistory: [
+          {
+            timestamp: new Date().toISOString(),
+            note: 'Emergency report is now available to ambulance units. Waiting for a driver to accept.',
+            author: 'Dispatch Console',
+          },
+          ...newIncident.notesHistory,
+        ],
+      };
 
       setIncidents((prev) => [finalIncident, ...prev]);
       setActiveIncidentId(newId);
       return finalIncident;
     },
     [network, facilities, ambulances, routingAlgorithm, routingObjective, gridConfig, logAudit]
+  );
+
+  // Driver claims an available request; only the first accepting unit receives it.
+  const driverRespondToRequest = useCallback(
+    (ambulanceId: string, incidentId: string, accept: boolean, passReason?: string): boolean => {
+      const ambulance = ambulances.find((item) => item.id === ambulanceId);
+      const incident = incidents.find((item) => item.id === incidentId);
+      if (!ambulance || !incident || incident.assignedAmbulanceId || incident.stage !== 'reported') return false;
+
+      if (!accept) {
+        setAmbulances((previous) => previous.map((item) => item.id === ambulanceId
+          ? {
+              ...item,
+              declineHistory: [
+                ...(item.declineHistory || []),
+                { incidentId, reason: passReason || 'No reason provided', timestamp: new Date().toISOString() },
+              ],
+            }
+          : item));
+        logAudit(
+          'driver_action',
+          'Dispatch Request Passed',
+          ambulance.callSign,
+          { incidentId, ambulanceId, passReason: passReason || 'No reason provided' },
+          'Request remains available',
+          'Driver passed this request; it remains visible to other available units.',
+          incidentId
+        );
+        return true;
+      }
+
+      const router = routingAlgorithm === 'astar' ? aStar : dijkstra;
+      const route = router(network, ambulance.currentNodeId, incident.locationNodeId, routingObjective);
+      const startNode = network.nodes.find((node) => node.id === ambulance.currentNodeId);
+
+      setIncidents((previous) => previous.map((item) => item.id === incidentId && !item.assignedAmbulanceId
+        ? {
+            ...item,
+            stage: 'en_route_scene',
+            assignedAmbulanceId: ambulanceId,
+            notesHistory: [
+              {
+                timestamp: new Date().toISOString(),
+                note: `Driver ${ambulance.callSign} accepted the request. Route activated with an estimated ${route.totalTravelTimeMinutes} minute travel time.`,
+                author: `Unit ${ambulance.callSign}`,
+              },
+              ...item.notesHistory,
+            ],
+          }
+        : item));
+
+      setAmbulances((previous) => previous.map((item) => item.id === ambulanceId
+        ? {
+            ...item,
+            status: 'en_route_scene',
+            currentIncidentId: incidentId,
+            reservedForIncidentId: undefined,
+            currentRoutePath: route.path,
+            routeProgressIndex: 0,
+            simulatedCoordinates: startNode ? { x: startNode.x, y: startNode.y } : undefined,
+          }
+        : item));
+      setSelectedAmbulanceId(ambulanceId);
+      setActiveIncidentId(incidentId);
+      setPoliceAlerts((previous) => previous.map((alert) => alert.incidentId === incidentId
+        ? { ...alert, ambulanceAssignedCallSign: ambulance.callSign, status: 'intervention_active' }
+        : alert));
+      logAudit(
+        'driver_action',
+        'Dispatch Request Accepted',
+        ambulance.callSign,
+        {
+          incidentId,
+          ambulanceId,
+          routeDistanceKm: route.totalDistanceKm,
+          etaMinutes: route.totalTravelTimeMinutes,
+          routeNodes: route.path,
+        },
+        'En Route to Scene',
+        'First available unit accepted the request and automatically activated route guidance.',
+        incidentId
+      );
+      return true;
+    },
+    [incidents, ambulances, network, routingAlgorithm, routingObjective, logAudit]
   );
 
   // Action: Driver Acknowledges Dispatch (Accept or Decline with Reason)
@@ -1137,6 +1195,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateIncidentObservations,
         dispatchAmbulanceToIncident,
         driverAcknowledgeDispatch,
+        driverRespondToRequest,
         driverStepMovement,
         driverMarkArrivalAtScene,
         driverSubmitOnSceneReport,
