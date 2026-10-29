@@ -23,14 +23,14 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-export const DriverDashboard: React.FC = () => {
+export const DriverDashboard: React.FC<{ ambulanceId: string }> = ({ ambulanceId }) => {
   const {
     ambulances,
     incidents,
     facilities,
     network,
-    selectedAmbulanceId,
-    setSelectedAmbulanceId,
+    // selectedAmbulanceId,
+    // setSelectedAmbulanceId,
     routingAlgorithm,
     routingObjective,
     driverRespondToRequest,
@@ -42,6 +42,7 @@ export const DriverDashboard: React.FC = () => {
     driverMarkArrivalAtHospital,
     confirmHospitalDestination,
   } = useSimulation();
+  const [selectedAmbulanceId, setSelectedAmbulanceId] = useState<string>(ambulanceId);
 
   const currentAmbulance =
     ambulances.find((a) => a.id === selectedAmbulanceId) || ambulances[0];

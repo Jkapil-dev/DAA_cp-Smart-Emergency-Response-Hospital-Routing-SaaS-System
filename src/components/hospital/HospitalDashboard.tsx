@@ -20,17 +20,18 @@ import {
   FileText,
 } from 'lucide-react';
 
-export const HospitalDashboard: React.FC = () => {
+export const HospitalDashboard: React.FC<{ facilityId: string }> = ({ facilityId }) => {
   const {
     facilities,
-    selectedHospitalId,
-    setSelectedHospitalId,
+    // selectedHospitalId,
+    // setSelectedHospitalId,
     incidents,
     updateFacilityBeds,
     updateFacilityResources,
     hospitalRespond,
     confirmHospitalDestination,
   } = useSimulation();
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string>(facilityId);
 
   const currentHospital =
     facilities.find((f) => f.id === selectedHospitalId) || facilities[0];
